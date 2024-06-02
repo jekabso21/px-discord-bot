@@ -7,7 +7,7 @@ export async function premChecker(interaction: CommandInteraction, userId: strin
         const result = await connection.query('SELECT * FROM users WHERE id = ?', [interaction.user.id]);
         connection.release();
         if (result.length === 0) {
-            await interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
+            await interaction.reply({ content: `<@${interaction.user.id}> You are not authorized to use this command.`, ephemeral: true });
             return false;
         }
 

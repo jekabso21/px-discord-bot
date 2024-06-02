@@ -80,6 +80,10 @@ client.on('interactionCreate', async interaction => {
             const hasPermission = await premChecker(interaction, interaction.user.id);
             if (!hasPermission) return;
         }
+        if (interaction.commandName === 'studentlist') {
+            const hasPermission = await premChecker(interaction, interaction.user.id);
+            if (!hasPermission) return;
+        }
 
         try {
             await command.execute(interaction);
