@@ -4,7 +4,6 @@ import { ChatInputCommandInteraction,
     ModalBuilder,
     TextInputBuilder,
     ActionRowBuilder } from 'discord.js';
-import pool from '../database';
 
 
 export const data = new SlashCommandBuilder()
@@ -18,7 +17,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const studentroleID: TextInputBuilder = new TextInputBuilder()
         .setCustomId("studentroleID")
-        .setLabel("Student Role ID")
+        .setLabel("Student Role Name")
         .setStyle(TextInputStyle.Short)
         .setPlaceholder("1017146469406486529");
 
