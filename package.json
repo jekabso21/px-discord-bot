@@ -2,13 +2,13 @@
   "name": "px-discord-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
     "dev": "nodemon --watch src -e ts --exec ts-node src/index.ts"
   },
   "keywords": [],
-  "author": "",
+  "author": "Retro21",
   "license": "ISC",
   "dependencies": {
     "@discordjs/rest": "^2.3.0",

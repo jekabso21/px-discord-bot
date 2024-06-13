@@ -5,7 +5,20 @@ import {
     TextInputStyle,
     ModalBuilder,
     TextInputBuilder,
-    ActionRowBuilder } from 'discord.js';
+    ActionRowBuilder,
+    EmbedBuilder,
+    TextChannel,  
+    Message,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType,
+    CacheType,
+    ButtonInteraction,
+    ModalSubmitInteraction,
+    CommandInteraction,
+    GuildMember,
+    PermissionsBitField
+} from 'discord.js';
 import dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -40,7 +53,6 @@ console.log('Registering the following commands:', commands);
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN!);
 
-
 client.once('ready', async () => {
     try {
         console.log('Started refreshing application (/) commands.');
@@ -56,151 +68,103 @@ client.once('ready', async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
 });
 
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
     if (interaction.isCommand()) {
-
-        const command = client.commands.get(interaction.commandName);
+        const commandInteraction = interaction as CommandInteraction;
+        const command = client.commands.get(commandInteraction.commandName);
 
         if (!command) return;
 
         // Check permissions for commands requiring special permissions
-        if (interaction.commandName === 'adduser') {
-            const hasPermission = await premChecker(interaction, interaction.user.id);
-            if (!hasPermission) return;
-        }
-        if (interaction.commandName === 'removeuser') {
-            const hasPermission = await premChecker(interaction, interaction.user.id);
-            if (!hasPermission) return;
-        }
-        if (interaction.commandName === 'addstudents') {
-            const hasPermission = await premChecker(interaction, interaction.user.id);
-            if (!hasPermission) return;
-        }
-        if (interaction.commandName === 'sendstudentbtn') {
-            const hasPermission = await premChecker(interaction, interaction.user.id);
-            if (!hasPermission) return;
-        }
-        if (interaction.commandName === 'studentlist') {
-            const hasPermission = await premChecker(interaction, interaction.user.id);
+        if (commandInteraction.commandName === 'adduser' || 
+            commandInteraction.commandName === 'removeuser' || 
+            commandInteraction.commandName === 'addstudents' || 
+            commandInteraction.commandName === 'sendstudentbtn' || 
+            commandInteraction.commandName === 'studentlist') {
+            
+            const hasPermission = await premChecker(commandInteraction, commandInteraction.user.id);
             if (!hasPermission) return;
         }
 
         try {
-            await command.execute(interaction);
+            await command.execute(commandInteraction);
         } catch (error) {
             console.error(error);
-            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+            await commandInteraction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
         }
     } else if (interaction.isButton()) {
-        if (interaction.customId === "send_student_info") { // Use customId instead of id
-            const modal: ModalBuilder = new ModalBuilder()
-            .setCustomId("getStudentInfo")
-            .setTitle("Add Students");
+        const buttonInteraction = interaction as ButtonInteraction;
+        const { customId } = buttonInteraction;
 
-            const student_personal_id: TextInputBuilder = new TextInputBuilder()
-                .setCustomId("student_personal_id")
-                .setLabel("Your Personal code (Personas Kods)")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder("010203-20001");
-
-
-            const firstActionRow: any = new ActionRowBuilder().addComponents(student_personal_id);
-
-            modal.addComponents(firstActionRow);
-            await interaction.showModal(modal);
-        }
-    }
-});
-
-
-
-client.on(Events.InteractionCreate, async (interaction: Interaction) => {
-    if (!interaction.isModalSubmit()) return;
-    if (interaction.customId === 'addStudents') {
-        const studentroleID = interaction.fields.getTextInputValue('studentroleID');
-        const studentGroupName = interaction.fields.getTextInputValue('studentGroupName');
-        const Students = interaction.fields.getTextInputValue('Students');
-        
-        if (!interaction.guild) {
-            console.error('Guild is null');
-            interaction.reply("Failed to add students to the database: Guild is null");
+        const member = buttonInteraction.member as GuildMember;
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            await buttonInteraction.reply({ content: 'You do not have permission to use this button.', ephemeral: true });
             return;
         }
 
-        try {
-            // Check if the role already exists
-            let role = interaction.guild.roles.cache.find(r => r.name === studentroleID);
-            
-            if (!role) {
-                // Create the role if it does not exist
-                role = await interaction.guild.roles.create({
-                    name: studentroleID, // Assuming you meant to use studentroleID here
-                });
-            }
+        const message = await buttonInteraction.channel?.messages.fetch(buttonInteraction.message.id);
+        if (!message) return;
 
-            console.log(studentGroupName, role.id, Students); // Use console.log instead of print
-            // Use the role ID in the addStudentsToDB function
-            addStudentsToDB(studentGroupName, role.id, Students)
-            .then(() => {
-                console.log('Students are added to the database');
-                interaction.reply("Students are added to the database");
-            })
-            .catch(err => {
-                console.error('Failed to add students to the database:', err);
-                interaction.reply("Failed to add students to the database");
-            });
-        } catch (err) {
-            console.error('Failed to create role:', err);
-            interaction.reply("Failed to create role");
+        const embed = message.embeds[0];
+        if (customId === 'approveSuggestion') {
+            const updatedEmbed = EmbedBuilder.from(embed)
+                .setColor('#33f308')
+                .setTitle('Approved Suggestion');
+            await message.edit({ embeds: [updatedEmbed], components: [] });
+            await buttonInteraction.reply({ content: 'Suggestion approved.', ephemeral: true });
+        } else if (customId === 'denySuggestion') {
+            const updatedEmbed = EmbedBuilder.from(embed)
+                .setColor('#940202')
+                .setTitle('Denied Suggestion');
+            await message.edit({ embeds: [updatedEmbed], components: [] });
+            await buttonInteraction.reply({ content: 'Suggestion denied.', ephemeral: true });
         }
-    } else if (interaction.customId === 'getStudentInfo') {
-        const student_personal_id = interaction.fields.getTextInputValue('student_personal_id');
-        try {
-            const [rows] = await pool.query('SELECT * FROM students WHERE personalCode = ?', [student_personal_id]);
-            if (!rows || rows.length === 0) {
-                interaction.reply(`No student found with that personal Code`);
-                return undefined;
-            }
-            if (rows.hasSignedIn) {
-                interaction.reply(`Student with that personal Code has already signed in`);
-                return;
-            }
-            const firstname = rows.name;
-            const lastname = rows.lastName;
-            const grupe = rows.groupName;
-            const roleID = rows.roleId;
-            const newname = `${firstname}-${lastname}-${grupe}`;
+    } else if (interaction.isModalSubmit()) {
+        const modalInteraction = interaction as ModalSubmitInteraction;
+        if (modalInteraction.customId === 'addSuggestion') {
+            const msg = modalInteraction.fields.getTextInputValue('written-suggestion');
 
-            if (!interaction.guild) {
-                console.log('Guild not found');
+            if (!modalInteraction.guild) {
+                console.error('Guild is null');
+                await modalInteraction.reply("Failed to add suggestion: Guild is null");
                 return;
             }
-        
-            // Get the guild member
-            const guildMember = interaction.guild.members.cache.get(interaction.user.id);
-            if (!guildMember) {
-                console.log(`No member found with ID: ${interaction.user.id}`);
-                return;
-            }
-        
-            // Change the member's nickname
-            await guildMember.setNickname(newname);
-        
-            // Add the role to the member
-            const role = interaction.guild.roles.cache.get(roleID);
-            if (!role) {
-                console.log(`No role found with ID: ${roleID}`);
-                return;
-            }
-            await guildMember.roles.add(role);
-        
-            interaction.reply(`Hello <@${interaction.user.id}>, your student name has been set as nickname + the proper role. Do not change the nickname in the server!`);
-            await pool.query('UPDATE students SET hasSignedIn = true WHERE personalCode = ?', [student_personal_id]);
 
-            console.log('Student added to the server');
-        } catch (error) {
-            console.error('Error finding student:', error);
-            throw error;
+            const exampleEmbed = new EmbedBuilder()
+                .setColor(0x0099FF)
+                .setTitle('Suggestion added by some student')
+                .setDescription(msg)
+                .setTimestamp();
+
+            const approveButton = new ButtonBuilder()
+                .setCustomId('approveSuggestion')
+                .setLabel('Approve')
+                .setStyle(ButtonStyle.Success);
+
+            const denyButton = new ButtonBuilder()
+                .setCustomId('denySuggestion')
+                .setLabel('Deny')
+                .setStyle(ButtonStyle.Danger);
+
+            const buttonRow = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(approveButton, denyButton);
+
+            // Get the channel
+            const channel = modalInteraction.guild.channels.cache.find(channel => channel.name === 'suggestions') as TextChannel;
+
+            if (!channel) {
+                console.error('Channel is null');
+                await modalInteraction.reply("Failed to add suggestion: Channel is null");
+                return;
+            }
+
+            // Send the embed message with buttons and add reactions
+            await channel.send({ embeds: [exampleEmbed], components: [buttonRow] }).then((sentMessage: Message) => {
+                sentMessage.react('✅');
+                sentMessage.react('❌');
+            });
+
+            await modalInteraction.reply("Suggestion added");
         }
     }
 });
