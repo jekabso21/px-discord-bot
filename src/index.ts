@@ -17,7 +17,8 @@ import {
     ModalSubmitInteraction,
     CommandInteraction,
     GuildMember,
-    PermissionsBitField
+    PermissionsBitField,
+    ThreadAutoArchiveDuration
 } from 'discord.js';
 import dotenv from 'dotenv';
 import * as fs from 'fs';
@@ -118,6 +119,12 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
                 .setTitle('Denied Suggestion');
             await message.edit({ embeds: [updatedEmbed], components: [] });
             await buttonInteraction.reply({ content: 'Suggestion denied.', ephemeral: true });
+        } else if (customId === 'discussSuggestion') {
+            const thread = await message.startThread({
+                name: `Discuss: ${message.embeds[0]?.title || 'Suggestion'}`,
+                autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+            });
+            await buttonInteraction.reply({ content: `Thread created: ${thread.name}`, ephemeral: true });
         }
     } else if (interaction.isModalSubmit()) {
         const modalInteraction = interaction as ModalSubmitInteraction;
@@ -140,14 +147,21 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
                 .setCustomId('approveSuggestion')
                 .setLabel('Approve')
                 .setStyle(ButtonStyle.Success);
-
+            
             const denyButton = new ButtonBuilder()
                 .setCustomId('denySuggestion')
                 .setLabel('Deny')
                 .setStyle(ButtonStyle.Danger);
-
+            
+            const discussButton = new ButtonBuilder()
+                .setCustomId('discussSuggestion')
+                .setLabel('Discuss')
+                .setStyle(ButtonStyle.Primary);
+            
             const buttonRow = new ActionRowBuilder<ButtonBuilder>()
-                .addComponents(approveButton, denyButton);
+                .addComponents(approveButton, denyButton, discussButton);
+            
+            
 
             // Get the channel
             const channel = modalInteraction.guild.channels.cache.find(channel => channel.name === 'suggestions') as TextChannel;
@@ -164,7 +178,7 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
                 sentMessage.react('❌');
             });
 
-            await modalInteraction.reply("Suggestion added");
+            // await modalInteraction.reply("Suggestion added");
         }
     }
 });
